@@ -24,13 +24,13 @@ int main()
     std::cout << "Image loaded: " << img_rgb565.width() << "x" << img_rgb565.height() << std::endl;
 
     auto lab_img = dv::image::Image<dv::pixel_format::PixelFormat::LAB, 320, 240>();
-    dv::image::rgb565_to_lab(img_rgb565, lab_img);
+    dv::image::image_cast(img_rgb565, lab_img);
 
     auto bin_img = dv::image::Image<dv::pixel_format::PixelFormat::Binary, 320, 240>();
-    dv::binaryzation::threshold(lab_img, bin_img, {0, 0, 0}, {100, 127, 127});
+    dv::binaryzation::threshold(lab_img, bin_img, dv::pixel_format::LABPixel{0, 0, 0}, dv::pixel_format::LABPixel{100, 127, 127});
 
     auto converted_img = dv::image::Image<dv::pixel_format::PixelFormat::RGB565, 320, 240>();
-    dv::image::binary_to_rgb565(bin_img, converted_img);
+    dv::image::image_cast(bin_img, converted_img);
     file = fopen("out.bin" , "wb");
     if (!file)
     {

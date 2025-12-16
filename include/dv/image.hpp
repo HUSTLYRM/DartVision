@@ -138,6 +138,21 @@ namespace dv
         {
         };
 
+
+        template <typename from, typename to>
+        void image_cast(const from &src, to &dst)
+        {
+            for (size_t y = 0; y < src.height(); ++y)
+            {
+                for (size_t x = 0; x < src.width(); ++x)
+                {
+                    typename to::PixelT pixel;
+                    pixel_cast(src(x, y), pixel);
+                    dst(x, y) = pixel;
+                }
+            }
+        }
+
         template <size_t WIDTH, size_t HEIGHT>
         void raw_to_rgb565(uint8_t *src, Image<PixelFormat::RGB565, WIDTH, HEIGHT> &dst)
         {
@@ -151,70 +166,17 @@ namespace dv
         }
 
         template <size_t WIDTH, size_t HEIGHT>
-        void rgb565_to_lab(const Image<PixelFormat::RGB565, WIDTH, HEIGHT> &src,
-                             Image<PixelFormat::LAB, WIDTH, HEIGHT> &dst)
+        void rgb565_to_raw(const Image<PixelFormat::RGB565, WIDTH, HEIGHT> &src, uint8_t *dst)
         {
-            for (size_t y = 0; y < HEIGHT; ++y)
+            for (size_t i = 0; i < WIDTH * HEIGHT; ++i)
             {
-                for (size_t x = 0; x < WIDTH; ++x)
-                {
-                    const auto &rgb565_pixel = src(x, y);
-                    LABPixel lab_pixel;
-                    rgb565_to_lab(rgb565_pixel, lab_pixel);
-                    dst(x, y) = lab_pixel;
-                }
+                const auto &pixel = src(i % WIDTH, i / WIDTH);
+                uint16_t raw_pixel = *reinterpret_cast<const uint16_t *>(&pixel);
+                dst[i * 2] = static_cast<uint8_t>(raw_pixel & 0x00FF);
+                dst[i * 2 + 1] = static_cast<uint8_t>((raw_pixel & 0xFF00) >> 8);
             }
         }
-
-        template <size_t WIDTH, size_t HEIGHT>
-        void binary_to_rgb565(const Image<PixelFormat::Binary, WIDTH, HEIGHT> &src,
-                             Image<PixelFormat::RGB565, WIDTH, HEIGHT> &dst)
-        {
-            for (size_t y = 0; y < HEIGHT; ++y)
-            {
-                for (size_t x = 0; x < WIDTH; ++x)
-                {
-                    const auto &binary_pixel = src(x, y);
-                    RGB565Pixel rgb565_pixel = binary_pixel ? PixelFormatTrait<PixelFormat::RGB565>::max() : PixelFormatTrait<PixelFormat::RGB565>::type{0, 0, 0};
-                    dst(x, y) = rgb565_pixel;
-                }
-            }
-        }
-
-        template <size_t WIDTH, size_t HEIGHT>
-        void rgb565_to_grayscale(const Image<PixelFormat::RGB565, WIDTH, HEIGHT> &src,
-                                 Image<PixelFormat::Grayscale, WIDTH, HEIGHT> &dst)
-        {
-            for (size_t y = 0; y < HEIGHT; ++y)
-            {
-                for (size_t x = 0; x < WIDTH; ++x)
-                {
-                    const auto &rgb565_pixel = src(x, y);
-                    uint8_t gray_pixel;
-                    pixel_format::rgb565_to_grayscale(rgb565_pixel, gray_pixel);
-                    dst(x, y) = gray_pixel;
-                }
-            }
-        }
-
-        template <PixelFormat SrcPixelT, PixelFormat DstPixelT, size_t WIDTH, size_t HEIGHT>
-        void convert_pixel_format(const Image<SrcPixelT, WIDTH, HEIGHT> &src,
-                                   Image<DstPixelT, WIDTH, HEIGHT> &dst)
-        {
-            if (SrcPixelT == PixelFormat::RGB565 && DstPixelT == PixelFormat::LAB)
-            {
-                rgb565_to_lab(src, dst);
-            }
-            else if (SrcPixelT == PixelFormat::RGB565 && DstPixelT == PixelFormat::Grayscale)
-            {
-                rgb565_to_grayscale(src, dst);
-            }
-            else
-            {
-                // Unsupported conversion
-                static_assert(SrcPixelT != SrcPixelT, "Unsupported pixel format conversion");
-            }
-        }
+        
     }
 
 }

@@ -19,36 +19,47 @@ namespace dv
 
         template <PixelFormat PF>
         struct PixelFormatTrait;
+        
+        struct GrayscalePixel {
+            uint8_t value;
+            operator uint8_t() & { return value; }
 
-        using BinaryPixel = uint8_t;
-        template <>
-        struct PixelFormatTrait<PixelFormat::Binary>
-        {
-            using type = BinaryPixel;
-            static constexpr type min()
+            static constexpr GrayscalePixel min()
             {
-                return 0;
+                return {0};
             }
-            static constexpr type max()
+            static constexpr GrayscalePixel max()
             {
-                return 255;
+                return {255};
             }
+
+            bool operator<=(const GrayscalePixel &other) const
+            {
+                return value <= other.value;
+            }
+            bool operator>=(const GrayscalePixel &other) const
+            {
+                return value >= other.value;
+            }
+
+            bool operator==(const GrayscalePixel &other) const
+            {
+                return value == other.value;
+            }
+
+            GrayscalePixel& operator=(const uint8_t& v){
+                value = v;
+                return *this;
+            }
+            
         };
 
 
-        using GrayscalePixel = uint8_t;
         template <>
         struct PixelFormatTrait<PixelFormat::Grayscale>
         {
             using type = GrayscalePixel;
-            static constexpr type min()
-            {
-                return 0;
-            }
-            static constexpr type max()
-            {
-                return 255;
-            }
+            
         };
 
         struct RGB565Pixel
@@ -56,6 +67,17 @@ namespace dv
             uint16_t r : 5;
             uint16_t g : 6;
             uint16_t b : 5;
+
+
+            static constexpr RGB565Pixel min()
+            {
+                return {0, 0, 0};
+            }
+            static constexpr RGB565Pixel max()
+            {
+                return {31, 63, 31};
+            }
+
             bool operator<=(const RGB565Pixel &other) const
             {
                 return (r <= other.r) && (g <= other.g) && (b <= other.b);
@@ -65,18 +87,20 @@ namespace dv
                 return (r >= other.r) && (g >= other.g) && (b >= other.b);
             }
         };
+
+        using BinaryPixel = GrayscalePixel;
+        template <>
+        struct PixelFormatTrait<PixelFormat::Binary>
+        {
+            using type = BinaryPixel;
+        };
+
+
+
         template <>
         struct PixelFormatTrait<PixelFormat::RGB565>
         {
             using type = RGB565Pixel;
-            static constexpr type min()
-            {
-                return {0, 0, 0};
-            }
-            static constexpr type max()
-            {
-                return {31, 63, 31};
-            }
         };
 
         struct RGBPixel
@@ -84,6 +108,15 @@ namespace dv
             uint8_t r;
             uint8_t g;
             uint8_t b;
+
+            static constexpr RGBPixel min()
+            {
+                return {0, 0, 0};
+            }
+            static constexpr RGBPixel max()
+            {
+                return {255, 255, 255};
+            }
 
             bool operator<=(const RGBPixel &other) const
             {
@@ -99,14 +132,6 @@ namespace dv
         struct PixelFormatTrait<PixelFormat::RGB>
         {
             using type = RGBPixel;
-            static constexpr type min()
-            {
-                return {0, 0, 0};
-            }
-            static constexpr type max()
-            {
-                return {255, 255, 255};
-            }
         };
 
         struct LABPixel
@@ -138,7 +163,7 @@ namespace dv
             }
         };
 
-        const auto rgb565_to_rgb_lookup_tables_init_(){
+        const auto _rgb565_to_rgb_lookup_tables_init(){
             static std::array<RGBPixel, 65536> rgb565_to_rgb_lookup_table_;
             for (uint32_t i = 0; i <= 0xFFFF; ++i)
             {
@@ -156,22 +181,9 @@ namespace dv
             return rgb565_to_rgb_lookup_table_;
         }
 
-        const auto rgb565_to_grayscale_lookup_tables_init_(){
-            std::array<uint8_t, 65536> rgb565_to_grayscale_lookup_table_;
-            const static auto & rgb565_to_rgb_lookup_table_ = rgb565_to_rgb_lookup_tables_init_();
-            for (uint32_t i = 0; i <= 0xFFFF; ++i)
-            {
-                const auto & rgb = rgb565_to_rgb_lookup_table_[i];
-                // Using Rec. 601 luma formula
-                uint8_t gray = static_cast<uint8_t>(std::round(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b));
-                rgb565_to_grayscale_lookup_table_[i] = gray;
-            }
-            return rgb565_to_grayscale_lookup_table_;
-        }
-
-        const auto rgb565_to_lab_lookup_tables_init_()
+        const auto _rgb565_to_lab_lookup_tables_init()
         {
-            std::array<LABPixel, 65536> rgb565_to_lab_lookup_table_;
+            std::array<LABPixel, 65536> rgb565_to_lab_lookup_table;
 
             auto rgb565_to_rgb8 = [](uint16_t pix, uint8_t *r, uint8_t *g, uint8_t *b) -> void
             {
@@ -232,39 +244,79 @@ namespace dv
             {
                 float L, a, b;
                 rgb565_to_lab(static_cast<uint16_t>(i), &L, &a, &b);
-                rgb565_to_lab_lookup_table_[i] = LABPixel{
+                rgb565_to_lab_lookup_table[i] = LABPixel{
                     static_cast<int8_t>(std::round(L)),
                     static_cast<int8_t>(std::round(a)),
                     static_cast<int8_t>(std::round(b))};
             }
-            return rgb565_to_lab_lookup_table_;
+            return rgb565_to_lab_lookup_table;
         }
 
-        void rgb565_to_rgb(const RGB565Pixel &rgb565, RGBPixel &rgb)
+
+        template<typename SRCT, typename DSTT>
+        void pixel_cast(const SRCT&, DSTT&){
+            static_assert(false, "Unsupported pixel format conversion");
+            // throw std::runtime_error("Unsupported pixel format conversion");
+        }
+
+        template<typename T>
+        void pixel_cast(const T& src, T& dst){
+            dst = src;
+        }
+
+        template<>
+        void pixel_cast(const RGB565Pixel &rgb565, RGBPixel &rgb)
         {
-            const auto & rgb565_to_rgb_lookup_table_ = rgb565_to_rgb_lookup_tables_init_();
+            const auto & rgb565_to_rgb_lookup_table_ = _rgb565_to_rgb_lookup_tables_init();
 
             rgb = rgb565_to_rgb_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb565)];
         }
 
-        void rgb565_to_grayscale(const RGB565Pixel &rgb565, uint8_t &gray)
+        template<>
+        void pixel_cast(const RGBPixel &rgb, RGB565Pixel &rgb565)
         {
-            const static auto & rgb565_to_grayscale_lookup_table_ = rgb565_to_grayscale_lookup_tables_init_();
-
-            gray = rgb565_to_grayscale_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb565)];
+            // compress to RGB565
+            uint8_t r5 = static_cast<uint8_t>((rgb.r * 31 + 127) / 255);
+            uint8_t g6 = static_cast<uint8_t>((rgb.g * 63 + 127) / 255);
+            uint8_t b5 = static_cast<uint8_t>((rgb.b * 31 + 127) / 255);
+            rgb565 = RGB565Pixel{r5, g6, b5};
         }
 
-        void rgb_to_grayscale(const RGBPixel &rgb, uint8_t &gray)
+        template<>
+        void pixel_cast(const RGB565Pixel &rgb565, LABPixel &lab)
+        {
+            const static auto & rgb565_to_lab_lookup_table = _rgb565_to_lab_lookup_tables_init();
+
+            lab = rgb565_to_lab_lookup_table[*reinterpret_cast<const uint16_t *>(&rgb565)];
+        }
+
+        template<>
+        void pixel_cast(const RGBPixel &rgb, GrayscalePixel &gray)
         {
             // Using Rec. 601 luma formula
-            gray = static_cast<uint8_t>(std::round(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b));
+            gray.value = static_cast<uint8_t>(std::round(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b));
         }
 
-        void rgb565_to_lab(const RGB565Pixel &rgb, LABPixel &lab)
+        template<>
+        void pixel_cast(const RGB565Pixel &rgb565, GrayscalePixel &gray)
         {
-            const static auto & rgb565_to_lab_lookup_table_ = rgb565_to_lab_lookup_tables_init_();
+            RGBPixel rgb;
+            pixel_cast(rgb565, rgb);
+            pixel_cast(rgb, gray);
+        }
 
-            lab = rgb565_to_lab_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb)];
+        template<>
+        void pixel_cast(const GrayscalePixel &gray, RGBPixel &rgb)
+        {
+            rgb = RGBPixel{gray.value, gray.value, gray.value};
+        }
+
+        template<>
+        void pixel_cast(const GrayscalePixel &gray, RGB565Pixel &rgb565)
+        {
+            RGBPixel rgb;
+            pixel_cast(gray, rgb);
+            pixel_cast(rgb, rgb565);
         }
     }
 }

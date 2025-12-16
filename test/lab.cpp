@@ -32,7 +32,7 @@ int main()
 
     auto new_img = dv::image::Image<dv::pixel_format::PixelFormat::LAB, 320, 240>();
 
-    dv::image::rgb565_to_lab(img_rgb565, new_img);
+    dv::image::image_cast(img_rgb565, new_img);
     // std::cout << "Converted to LAB format." << std::endl;
 
     
