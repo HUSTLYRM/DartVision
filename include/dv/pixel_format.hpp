@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cmath>
+#include <array>
 
 namespace dv
 {
