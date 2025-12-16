@@ -13,8 +13,36 @@ namespace dv
 
         template <PixelFormat PF,
                   size_t WIDTH,
+                  size_t HEIGHT,
+                  typename Derived>
+        class ImageBase
+        {
+        public:
+            static constexpr PixelFormat pixel_format = PF;
+            using PixelT = typename PixelFormatTrait<PF>::type;
+
+            PixelFormat format() const { return format_; }
+            size_t width() const { return WIDTH; }
+            size_t height() const { return HEIGHT; }
+
+            decltype(auto) operator()(size_t x, size_t y)
+            {
+                return static_cast<Derived*>(this)->get(x, y);
+            }
+
+            decltype(auto) operator()(size_t x, size_t y) const
+            {
+                return static_cast<const Derived*>(this)->get(x, y);
+            }
+        protected:
+            PixelFormat format_ = PF;
+            
+        };
+
+        template <PixelFormat PF,
+                  size_t WIDTH,
                   size_t HEIGHT>
-        class Image
+        class Image : public ImageBase<PF, WIDTH, HEIGHT, Image<PF, WIDTH, HEIGHT>>
         {
         public:
             static constexpr PixelFormat pixel_format = PF;
@@ -24,32 +52,81 @@ namespace dv
 
             using PixelT = typename PixelFormatTrait<PF>::type;
 
-            PixelFormat format() const { return format_; }
-            size_t width() const { return WIDTH; }
-            size_t height() const { return HEIGHT; }
-
-            PixelT &operator()(size_t x, size_t y)
+            PixelT &get(size_t x, size_t y)
             {
-                if (x >= WIDTH || y >= HEIGHT)
-                {
-                    return data_[0];
-                }
                 return data_[y * WIDTH + x];
             }
 
-            const PixelT &operator()(size_t x, size_t y) const
+            const PixelT &get(size_t x, size_t y) const
             {
-                if (x >= WIDTH || y >= HEIGHT)
-                {
-                    return data_[0];
-                }
                 return data_[y * WIDTH + x];
             }
 
         private:
-            PixelFormat format_ = PF;
             PixelT data_[WIDTH * HEIGHT];
         };
+
+
+        template <size_t WIDTH, size_t HEIGHT>
+        class Image<PixelFormat::Binary, WIDTH, HEIGHT> : public ImageBase<PixelFormat::Binary, WIDTH, HEIGHT, Image<PixelFormat::Binary, WIDTH, HEIGHT>>
+        {
+        public:
+            using PixelT = typename PixelFormatTrait<PixelFormat::Binary>::type;
+
+            class Proxy {
+            public:
+                Proxy(std::uint8_t* byte_ptr, uint8_t mask, bool oob = false)
+                    : byte_ptr_(byte_ptr), mask_(mask), oob_(oob) {}
+
+                operator PixelT() const {
+                    if (oob_ || byte_ptr_ == nullptr) return PixelT{0};
+                    return (*byte_ptr_ & mask_) ? PixelT{255} : PixelT{0};
+                }
+
+                Proxy &operator=(PixelT v) {
+                    if (oob_ || byte_ptr_ == nullptr) return *this;
+                    if (v == PixelT{0}) {
+                        *byte_ptr_ &= ~mask_;
+                    } else {
+                        *byte_ptr_ |= mask_;
+                    }
+                    return *this;
+                }
+
+                Proxy &operator=(const Proxy &other) {
+                    return *this = static_cast<PixelT>(other);
+                }
+
+            private:
+                std::uint8_t* byte_ptr_;
+                uint8_t mask_;
+                bool oob_;
+            };
+
+            Proxy get(size_t x, size_t y) {
+                if (x >= WIDTH || y >= HEIGHT) {
+                    return Proxy(nullptr, 0, true);
+                }
+                size_t idx = y * WIDTH + x;
+                size_t byte_index = idx / 8;
+                uint8_t bit_mask = uint8_t(1u << (idx % 8));
+                return Proxy(&data_[byte_index], bit_mask, false);
+            }
+
+            PixelT get(size_t x, size_t y) const {
+                if (x >= WIDTH || y >= HEIGHT) return PixelT{0};
+                size_t idx = y * WIDTH + x;
+                size_t byte_index = idx / 8;
+                uint8_t bit_mask = uint8_t(1u << (idx % 8));
+                return (data_[byte_index] & bit_mask) ? PixelT{255} : PixelT{0};
+            }
+
+        private:
+            static constexpr size_t BIT_COUNT = WIDTH * HEIGHT;
+            static constexpr size_t BYTE_COUNT = (BIT_COUNT + 7) / 8;
+            std::array<uint8_t, BYTE_COUNT> data_{};
+        };
+
 
         template <typename T>
         struct is_image : std::false_type
@@ -83,7 +160,7 @@ namespace dv
                 {
                     const auto &rgb565_pixel = src(x, y);
                     LABPixel lab_pixel;
-                    rgb_to_lab(rgb565_pixel, lab_pixel);
+                    rgb565_to_lab(rgb565_pixel, lab_pixel);
                     dst(x, y) = lab_pixel;
                 }
             }
@@ -101,6 +178,41 @@ namespace dv
                     RGB565Pixel rgb565_pixel = binary_pixel ? PixelFormatTrait<PixelFormat::RGB565>::max() : PixelFormatTrait<PixelFormat::RGB565>::type{0, 0, 0};
                     dst(x, y) = rgb565_pixel;
                 }
+            }
+        }
+
+        template <size_t WIDTH, size_t HEIGHT>
+        void rgb565_to_grayscale(const Image<PixelFormat::RGB565, WIDTH, HEIGHT> &src,
+                                 Image<PixelFormat::Grayscale, WIDTH, HEIGHT> &dst)
+        {
+            for (size_t y = 0; y < HEIGHT; ++y)
+            {
+                for (size_t x = 0; x < WIDTH; ++x)
+                {
+                    const auto &rgb565_pixel = src(x, y);
+                    uint8_t gray_pixel;
+                    pixel_format::rgb565_to_grayscale(rgb565_pixel, gray_pixel);
+                    dst(x, y) = gray_pixel;
+                }
+            }
+        }
+
+        template <PixelFormat SrcPixelT, PixelFormat DstPixelT, size_t WIDTH, size_t HEIGHT>
+        void convert_pixel_format(const Image<SrcPixelT, WIDTH, HEIGHT> &src,
+                                   Image<DstPixelT, WIDTH, HEIGHT> &dst)
+        {
+            if (SrcPixelT == PixelFormat::RGB565 && DstPixelT == PixelFormat::LAB)
+            {
+                rgb565_to_lab(src, dst);
+            }
+            else if (SrcPixelT == PixelFormat::RGB565 && DstPixelT == PixelFormat::Grayscale)
+            {
+                rgb565_to_grayscale(src, dst);
+            }
+            else
+            {
+                // Unsupported conversion
+                static_assert(SrcPixelT != SrcPixelT, "Unsupported pixel format conversion");
             }
         }
     }

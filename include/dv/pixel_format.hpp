@@ -10,17 +10,40 @@ namespace dv
         enum class PixelFormat
         {
             Binary,
+            Grayscale,
             RGB565,
+            RGB,
             LAB,
         };
 
         template <PixelFormat PF>
         struct PixelFormatTrait;
 
+        using BinaryPixel = uint8_t;
         template <>
         struct PixelFormatTrait<PixelFormat::Binary>
         {
-            using type = uint8_t;
+            using type = BinaryPixel;
+            static constexpr type min()
+            {
+                return 0;
+            }
+            static constexpr type max()
+            {
+                return 255;
+            }
+        };
+
+
+        using GrayscalePixel = uint8_t;
+        template <>
+        struct PixelFormatTrait<PixelFormat::Grayscale>
+        {
+            using type = GrayscalePixel;
+            static constexpr type min()
+            {
+                return 0;
+            }
             static constexpr type max()
             {
                 return 255;
@@ -55,6 +78,36 @@ namespace dv
             }
         };
 
+        struct RGBPixel
+        {
+            uint8_t r;
+            uint8_t g;
+            uint8_t b;
+
+            bool operator<=(const RGBPixel &other) const
+            {
+                return (r <= other.r) && (g <= other.g) && (b <= other.b);
+            }
+            bool operator>=(const RGBPixel &other) const
+            {
+                return (r >= other.r) && (g >= other.g) && (b >= other.b);
+            }
+        };
+
+        template <>
+        struct PixelFormatTrait<PixelFormat::RGB>
+        {
+            using type = RGBPixel;
+            static constexpr type min()
+            {
+                return {0, 0, 0};
+            }
+            static constexpr type max()
+            {
+                return {255, 255, 255};
+            }
+        };
+
         struct LABPixel
         {
             int8_t l;
@@ -84,10 +137,41 @@ namespace dv
             }
         };
 
-        inline LABPixel rgb_to_lab_lookup_table_[65536];
+        const auto rgb565_to_rgb_lookup_tables_init_(){
+            static std::array<RGBPixel, 65536> rgb565_to_rgb_lookup_table_;
+            for (uint32_t i = 0; i <= 0xFFFF; ++i)
+            {
+                uint16_t pix = static_cast<uint16_t>(i);
+                // RGB565: R:5 G:6 B:5
+                uint8_t r5 = (pix >> 11) & 0x1F;
+                uint8_t g6 = (pix >> 5) & 0x3F;
+                uint8_t b5 = pix & 0x1F;
+                // expand to 0..255
+                uint8_t R8 = (r5 * 255 + 15) / 31;
+                uint8_t G8 = (g6 * 255 + 31) / 63;
+                uint8_t B8 = (b5 * 255 + 15) / 31;
+                rgb565_to_rgb_lookup_table_[i] = RGBPixel{R8, G8, B8};
+            }
+            return rgb565_to_rgb_lookup_table_;
+        }
 
-        bool rgb_to_lab_lookup_tables_init_()
+        const auto rgb565_to_grayscale_lookup_tables_init_(){
+            std::array<uint8_t, 65536> rgb565_to_grayscale_lookup_table_;
+            const static auto & rgb565_to_rgb_lookup_table_ = rgb565_to_rgb_lookup_tables_init_();
+            for (uint32_t i = 0; i <= 0xFFFF; ++i)
+            {
+                const auto & rgb = rgb565_to_rgb_lookup_table_[i];
+                // Using Rec. 601 luma formula
+                uint8_t gray = static_cast<uint8_t>(std::round(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b));
+                rgb565_to_grayscale_lookup_table_[i] = gray;
+            }
+            return rgb565_to_grayscale_lookup_table_;
+        }
+
+        const auto rgb565_to_lab_lookup_tables_init_()
         {
+            std::array<LABPixel, 65536> rgb565_to_lab_lookup_table_;
+
             auto rgb565_to_rgb8 = [](uint16_t pix, uint8_t *r, uint8_t *g, uint8_t *b) -> void
             {
                 // RGB565: R:5 G:6 B:5
@@ -147,19 +231,39 @@ namespace dv
             {
                 float L, a, b;
                 rgb565_to_lab(static_cast<uint16_t>(i), &L, &a, &b);
-                rgb_to_lab_lookup_table_[i] = LABPixel{
+                rgb565_to_lab_lookup_table_[i] = LABPixel{
                     static_cast<int8_t>(std::round(L)),
                     static_cast<int8_t>(std::round(a)),
                     static_cast<int8_t>(std::round(b))};
             }
-            return true;
+            return rgb565_to_lab_lookup_table_;
         }
 
-        void rgb_to_lab(const RGB565Pixel &rgb, LABPixel &lab)
+        void rgb565_to_rgb(const RGB565Pixel &rgb565, RGBPixel &rgb)
         {
-            static auto init = rgb_to_lab_lookup_tables_init_();
+            const auto & rgb565_to_rgb_lookup_table_ = rgb565_to_rgb_lookup_tables_init_();
 
-            lab = rgb_to_lab_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb)];
+            rgb = rgb565_to_rgb_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb565)];
+        }
+
+        void rgb565_to_grayscale(const RGB565Pixel &rgb565, uint8_t &gray)
+        {
+            const static auto & rgb565_to_grayscale_lookup_table_ = rgb565_to_grayscale_lookup_tables_init_();
+
+            gray = rgb565_to_grayscale_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb565)];
+        }
+
+        void rgb_to_grayscale(const RGBPixel &rgb, uint8_t &gray)
+        {
+            // Using Rec. 601 luma formula
+            gray = static_cast<uint8_t>(std::round(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b));
+        }
+
+        void rgb565_to_lab(const RGB565Pixel &rgb, LABPixel &lab)
+        {
+            const static auto & rgb565_to_lab_lookup_table_ = rgb565_to_lab_lookup_tables_init_();
+
+            lab = rgb565_to_lab_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb)];
         }
     }
 }
