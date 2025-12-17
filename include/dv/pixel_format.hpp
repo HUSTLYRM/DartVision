@@ -163,7 +163,7 @@ namespace dv
             }
         };
 
-        const auto _rgb565_to_rgb_lookup_tables_init(){
+        const auto rgb565_to_rgb_lookup_tables_init_(){
             static std::array<RGBPixel, 65536> rgb565_to_rgb_lookup_table_;
             for (uint32_t i = 0; i <= 0xFFFF; ++i)
             {
@@ -181,7 +181,7 @@ namespace dv
             return rgb565_to_rgb_lookup_table_;
         }
 
-        const auto _rgb565_to_lab_lookup_tables_init()
+        const auto rgb565_to_lab_lookup_tables_init_()
         {
             std::array<LABPixel, 65536> rgb565_to_lab_lookup_table;
 
@@ -267,7 +267,7 @@ namespace dv
         template<>
         void pixel_cast(const RGB565Pixel &rgb565, RGBPixel &rgb)
         {
-            const auto & rgb565_to_rgb_lookup_table_ = _rgb565_to_rgb_lookup_tables_init();
+            const auto & rgb565_to_rgb_lookup_table_ = rgb565_to_rgb_lookup_tables_init_();
 
             rgb = rgb565_to_rgb_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb565)];
         }
@@ -285,7 +285,7 @@ namespace dv
         template<>
         void pixel_cast(const RGB565Pixel &rgb565, LABPixel &lab)
         {
-            const static auto & rgb565_to_lab_lookup_table = _rgb565_to_lab_lookup_tables_init();
+            const static auto & rgb565_to_lab_lookup_table = rgb565_to_lab_lookup_tables_init_();
 
             lab = rgb565_to_lab_lookup_table[*reinterpret_cast<const uint16_t *>(&rgb565)];
         }
