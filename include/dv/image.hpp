@@ -140,7 +140,7 @@ namespace dv
 
 
         template <typename from, typename to>
-        void image_cast(const from &src, to &dst)
+        inline void image_cast(const from &src, to &dst)
         {
             for (size_t y = 0; y < src.height(); ++y)
             {
@@ -154,7 +154,7 @@ namespace dv
         }
 
         template <size_t WIDTH, size_t HEIGHT>
-        void raw_to_rgb565(uint8_t *src, Image<PixelFormat::RGB565, WIDTH, HEIGHT> &dst)
+        inline void raw_to_rgb565(uint8_t *src, Image<PixelFormat::RGB565, WIDTH, HEIGHT> &dst)
         {
             for (size_t i = 0; i < WIDTH * HEIGHT * 2; i += 2)
             {
@@ -166,7 +166,7 @@ namespace dv
         }
 
         template <size_t WIDTH, size_t HEIGHT>
-        void rgb565_to_raw(const Image<PixelFormat::RGB565, WIDTH, HEIGHT> &src, uint8_t *dst)
+        inline void rgb565_to_raw(const Image<PixelFormat::RGB565, WIDTH, HEIGHT> &src, uint8_t *dst)
         {
             for (size_t i = 0; i < WIDTH * HEIGHT; ++i)
             {

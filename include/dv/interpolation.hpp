@@ -12,7 +12,7 @@ namespace dv
         using namespace image;
 
         template <typename SrcImage, typename DstImage>
-        void nearest_neighbor(SrcImage &src, DstImage &dst)
+        inline void nearest_neighbor(SrcImage &src, DstImage &dst)
         {
             static_assert(is_image<SrcImage>::value, "SrcImage must be an Image");
             static_assert(is_image<DstImage>::value, "DstImage must be an Image");

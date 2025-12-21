@@ -163,7 +163,7 @@ namespace dv
             }
         };
 
-        const auto rgb565_to_rgb_lookup_tables_init_(){
+        inline const auto rgb565_to_rgb_lookup_tables_init_(){
             static std::array<RGBPixel, 65536> rgb565_to_rgb_lookup_table_;
             for (uint32_t i = 0; i <= 0xFFFF; ++i)
             {
@@ -181,7 +181,7 @@ namespace dv
             return rgb565_to_rgb_lookup_table_;
         }
 
-        const auto rgb565_to_lab_lookup_tables_init_()
+        inline const auto rgb565_to_lab_lookup_tables_init_()
         {
             std::array<LABPixel, 65536> rgb565_to_lab_lookup_table;
 
@@ -254,18 +254,18 @@ namespace dv
 
 
         template<typename SRCT, typename DSTT>
-        void pixel_cast(const SRCT&, DSTT&){
+        inline void pixel_cast(const SRCT&, DSTT&){
             static_assert(false, "Unsupported pixel format conversion");
             // throw std::runtime_error("Unsupported pixel format conversion");
         }
 
         template<typename T>
-        void pixel_cast(const T& src, T& dst){
+        inline void pixel_cast(const T& src, T& dst){
             dst = src;
         }
 
         template<>
-        void pixel_cast(const RGB565Pixel &rgb565, RGBPixel &rgb)
+        inline void pixel_cast(const RGB565Pixel &rgb565, RGBPixel &rgb)
         {
             const auto & rgb565_to_rgb_lookup_table_ = rgb565_to_rgb_lookup_tables_init_();
 
@@ -273,7 +273,7 @@ namespace dv
         }
 
         template<>
-        void pixel_cast(const RGBPixel &rgb, RGB565Pixel &rgb565)
+        inline void pixel_cast(const RGBPixel &rgb, RGB565Pixel &rgb565)
         {
             // compress to RGB565
             uint8_t r5 = static_cast<uint8_t>((rgb.r * 31 + 127) / 255);
@@ -283,7 +283,7 @@ namespace dv
         }
 
         template<>
-        void pixel_cast(const RGB565Pixel &rgb565, LABPixel &lab)
+        inline void pixel_cast(const RGB565Pixel &rgb565, LABPixel &lab)
         {
             const static auto & rgb565_to_lab_lookup_table = rgb565_to_lab_lookup_tables_init_();
 
@@ -291,14 +291,14 @@ namespace dv
         }
 
         template<>
-        void pixel_cast(const RGBPixel &rgb, GrayscalePixel &gray)
+        inline void pixel_cast(const RGBPixel &rgb, GrayscalePixel &gray)
         {
             // Using Rec. 601 luma formula
             gray.value = static_cast<uint8_t>(std::round(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b));
         }
 
         template<>
-        void pixel_cast(const RGB565Pixel &rgb565, GrayscalePixel &gray)
+        inline void pixel_cast(const RGB565Pixel &rgb565, GrayscalePixel &gray)
         {
             RGBPixel rgb;
             pixel_cast(rgb565, rgb);
@@ -306,13 +306,13 @@ namespace dv
         }
 
         template<>
-        void pixel_cast(const GrayscalePixel &gray, RGBPixel &rgb)
+        inline void pixel_cast(const GrayscalePixel &gray, RGBPixel &rgb)
         {
             rgb = RGBPixel{gray.value, gray.value, gray.value};
         }
 
         template<>
-        void pixel_cast(const GrayscalePixel &gray, RGB565Pixel &rgb565)
+        inline void pixel_cast(const GrayscalePixel &gray, RGB565Pixel &rgb565)
         {
             RGBPixel rgb;
             pixel_cast(gray, rgb);

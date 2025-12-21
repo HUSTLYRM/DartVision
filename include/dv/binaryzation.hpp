@@ -10,7 +10,7 @@ namespace dv
         using namespace pixel_format;
 
         template <PixelFormat PF, typename TPFT, size_t WIDTH, size_t HEIGHT>
-        void threshold(const Image<PF, WIDTH, HEIGHT> &src,
+        inline void threshold(const Image<PF, WIDTH, HEIGHT> &src,
                        Image<PixelFormat::Binary, WIDTH, HEIGHT> &dst,
                         TPFT t_low,
                         TPFT t_high)
@@ -32,7 +32,7 @@ namespace dv
         }
 
         template <PixelFormat PF, typename TPFT, size_t WIDTH, size_t HEIGHT>
-        void threshold(const Image<PF, WIDTH, HEIGHT> &src,
+        inline void threshold(const Image<PF, WIDTH, HEIGHT> &src,
                        Image<PixelFormat::Binary, WIDTH, HEIGHT> &dst,
                        TPFT t)
         {
@@ -41,7 +41,7 @@ namespace dv
         }
 
         template <size_t WIDTH, size_t HEIGHT>
-        void otsu(const Image<PixelFormat::Grayscale, WIDTH, HEIGHT> &src,
+        inline void otsu(const Image<PixelFormat::Grayscale, WIDTH, HEIGHT> &src,
                   Image<PixelFormat::Binary, WIDTH, HEIGHT> &dst)
         {
             // histogram
