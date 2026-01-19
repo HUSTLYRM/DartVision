@@ -62,6 +62,10 @@ namespace dv
                 return data_[y * WIDTH + x];
             }
 
+            const PixelT* get_data() {
+                return data_;
+            }
+
         private:
             PixelT data_[WIDTH * HEIGHT];
         };
