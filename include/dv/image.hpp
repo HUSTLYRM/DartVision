@@ -82,6 +82,11 @@ namespace dv
                 Proxy(std::uint8_t* byte_ptr, uint8_t mask, bool oob = false)
                     : byte_ptr_(byte_ptr), mask_(mask), oob_(oob) {}
 
+                operator uint8_t() const {
+                    if (oob_ || byte_ptr_ == nullptr) return 0;
+                    return (*byte_ptr_ & mask_) ? 255 : 0;
+                }
+
                 operator PixelT() const {
                     if (oob_ || byte_ptr_ == nullptr) return PixelT{0};
                     return (*byte_ptr_ & mask_) ? PixelT{255} : PixelT{0};
