@@ -67,6 +67,7 @@ namespace dv
             }
 
         private:
+            alignas(32)
             PixelT data_[WIDTH * HEIGHT];
         };
 
