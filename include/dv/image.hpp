@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 
 #include "dv/pixel_format.hpp"
 
@@ -34,6 +35,19 @@ namespace dv
             {
                 return static_cast<const Derived*>(this)->get(x, y);
             }
+
+            void* get_data_ptr(){
+                return static_cast<Derived*>(this)->get_data_ptr();
+            }
+            
+            const void* get_data_ptr() const {
+                return static_cast<const Derived*>(this)->get_data_ptr();
+            }
+            
+            const size_t get_data_size() const {
+                return static_cast<Derived*>(this)->get_data_size();
+            }
+            
         protected:
             PixelFormat format_ = PF;
             
@@ -62,8 +76,16 @@ namespace dv
                 return data_[y * WIDTH + x];
             }
 
-            const PixelT* get_data() {
-                return data_;
+            void* get_data_ptr() {
+                return static_cast<void*>(data_);
+            }
+
+            const void* get_data_ptr() const {
+                return static_cast<const void*>(data_);
+            }
+
+            const size_t get_data_size() const {
+                return sizeof(data_);
             }
 
         private:
@@ -131,10 +153,22 @@ namespace dv
                 return (data_[byte_index] & bit_mask) ? PixelT{255} : PixelT{0};
             }
 
+            void* get_data_ptr() {
+                return static_cast<void*>(data_);
+            }
+
+            const void* get_data_ptr() const {
+                return static_cast<const void*>(data_);
+            }
+
+            const size_t get_data_size() const {
+                return sizeof(data_);
+            }
+
         private:
             static constexpr size_t BIT_COUNT = WIDTH * HEIGHT;
             static constexpr size_t BYTE_COUNT = (BIT_COUNT + 7) / 8;
-            std::array<uint8_t, BYTE_COUNT> data_{};
+            uint8_t data_[BYTE_COUNT]{};
         };
 
 
@@ -185,6 +219,18 @@ namespace dv
                 dst[i * 2] = static_cast<uint8_t>(raw_pixel & 0x00FF);
                 dst[i * 2 + 1] = static_cast<uint8_t>((raw_pixel & 0xFF00) >> 8);
             }
+        }
+
+        template <typename ImageType>
+        inline void copy(const ImageType &src, ImageType &dst)
+        {
+            static_assert(is_image<ImageType>::value, "ImageType must be an Image");
+    
+            auto* src_ptr = src.get_data_ptr();
+            auto* dst_ptr = dst.get_data_ptr();
+            size_t size = src.get_data_size();
+
+            std::memcpy((void*)dst_ptr, src_ptr, size);
         }
         
     }
