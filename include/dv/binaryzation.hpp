@@ -21,10 +21,10 @@ namespace dv
                 {
                     TPFT pixel;
                     pixel_cast(src(x, y), pixel);
-                    if (pixel <= t_low || pixel >= t_high)
-                        dst(x, y) = BinaryPixel{0};
-                    else
+                    if (pixel >= t_low && pixel <= t_high)
                         dst(x, y) = BinaryPixel{255};
+                    else
+                        dst(x, y) = BinaryPixel{0};
                 }
             }
         }
