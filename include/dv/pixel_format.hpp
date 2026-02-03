@@ -163,24 +163,6 @@ namespace dv
             }
         };
 
-        inline const auto rgb565_to_rgb_lookup_tables_init_(){
-            static std::array<RGBPixel, 65536> rgb565_to_rgb_lookup_table_;
-            for (uint32_t i = 0; i <= 0xFFFF; ++i)
-            {
-                uint16_t pix = static_cast<uint16_t>(i);
-                // RGB565: R:5 G:6 B:5
-                uint8_t r5 = (pix >> 11) & 0x1F;
-                uint8_t g6 = (pix >> 5) & 0x3F;
-                uint8_t b5 = pix & 0x1F;
-                // expand to 0..255
-                uint8_t R8 = (r5 * 255 + 15) / 31;
-                uint8_t G8 = (g6 * 255 + 31) / 63;
-                uint8_t B8 = (b5 * 255 + 15) / 31;
-                rgb565_to_rgb_lookup_table_[i] = RGBPixel{R8, G8, B8};
-            }
-            return rgb565_to_rgb_lookup_table_;
-        }
-
         inline const auto rgb565_to_lab_lookup_tables_init_()
         {
             std::array<LABPixel, 65536> rgb565_to_lab_lookup_table;
@@ -266,20 +248,19 @@ namespace dv
 
         template<>
         inline void pixel_cast(const RGB565Pixel &rgb565, RGBPixel &rgb)
-        {
-            const auto & rgb565_to_rgb_lookup_table_ = rgb565_to_rgb_lookup_tables_init_();
-
-            rgb = rgb565_to_rgb_lookup_table_[*reinterpret_cast<const uint16_t *>(&rgb565)];
+        {   
+            rgb.r = static_cast<uint8_t>(rgb565.r << 3 | (rgb565.r >> 2));
+            rgb.g = static_cast<uint8_t>(rgb565.g << 2 | (rgb565.g >> 4));
+            rgb.b = static_cast<uint8_t>(rgb565.b << 3 | (rgb565.b >> 2));
         }
 
         template<>
         inline void pixel_cast(const RGBPixel &rgb, RGB565Pixel &rgb565)
         {
             // compress to RGB565
-            uint8_t r5 = static_cast<uint8_t>((rgb.r * 31 + 127) / 255);
-            uint8_t g6 = static_cast<uint8_t>((rgb.g * 63 + 127) / 255);
-            uint8_t b5 = static_cast<uint8_t>((rgb.b * 31 + 127) / 255);
-            rgb565 = RGB565Pixel{r5, g6, b5};
+            rgb565.r = static_cast<uint8_t>((rgb.r >> 3) & 0x1F);
+            rgb565.g = static_cast<uint8_t>((rgb.g >> 2) & 0x3F);
+            rgb565.b = static_cast<uint8_t>((rgb.b >> 3) & 0x1F);
         }
 
         template<>
